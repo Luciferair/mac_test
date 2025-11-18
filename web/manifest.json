@@ -1,11 +1,11 @@
 {
-    "name": "webview",
-    "short_name": "webview",
+    "name": "toyutoyu",
+    "short_name": "toyutoyu",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Relax, earn points, and enjoy hot spring facilities with ease using Toyu Toyu.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
