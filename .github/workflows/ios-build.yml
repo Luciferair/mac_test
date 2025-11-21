@@ -41,11 +41,17 @@ jobs:
         security import ~/certs/cert.pem -k ~/Library/Keychains/build.keychain -A
         security import ~/certs/key.pem -k ~/Library/Keychains/build.keychain -A
 
+        # Set partition list for codesign access
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" ~/Library/Keychains/build.keychain
+
         security list-keychains -s ~/Library/Keychains/build.keychain
 
         # Install provisioning profile
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
         cp ~/certs/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
+        # List available signing identities
+        security find-identity -v -p codesigning ~/Library/Keychains/build.keychain
 
     - name: Build signed IPA with export options
       run: |
