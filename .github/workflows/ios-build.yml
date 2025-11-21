@@ -59,13 +59,9 @@ jobs:
         SIGNING_IDENTITY=$(security find-identity -v -p codesigning ~/Library/Keychains/build.keychain | head -1 | grep '"' | sed -e 's/[^"]*"//' -e 's/".*//')
         echo "Signing identity: $SIGNING_IDENTITY"
         
-        # Update Xcode project settings
-        /usr/libexec/PlistBuddy -c "Set :objects:97C147061CF9000F007C117D:buildSettings:CODE_SIGN_STYLE Manual" ios/Runner.xcodeproj/project.pbxproj
-        /usr/libexec/PlistBuddy -c "Set :objects:97C147061CF9000F007C117D:buildSettings:CODE_SIGN_IDENTITY \"$SIGNING_IDENTITY\"" ios/Runner.xcodeproj/project.pbxproj
-        /usr/libexec/PlistBuddy -c "Set :objects:97C147071CF9000F007C117D:buildSettings:CODE_SIGN_STYLE Manual" ios/Runner.xcodeproj/project.pbxproj
-        /usr/libexec/PlistBuddy -c "Set :objects:97C147071CF9000F007C117D:buildSettings:CODE_SIGN_IDENTITY \"$SIGNING_IDENTITY\"" ios/Runner.xcodeproj/project.pbxproj
-        /usr/libexec/PlistBuddy -c "Set :objects:249021D4217E4FDB00AE95B9:buildSettings:CODE_SIGN_STYLE Manual" ios/Runner.xcodeproj/project.pbxproj
-        /usr/libexec/PlistBuddy -c "Set :objects:249021D4217E4FDB00AE95B9:buildSettings:CODE_SIGN_IDENTITY \"$SIGNING_IDENTITY\"" ios/Runner.xcodeproj/project.pbxproj
+        # Update Xcode project for manual signing
+        sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' ios/Runner.xcodeproj/project.pbxproj
+        sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = com.toyutoyu.app;/PRODUCT_BUNDLE_IDENTIFIER = com.toyutoyu.app;\n\t\t\t\tCODE_SIGN_IDENTITY = \"$SIGNING_IDENTITY\";/g" ios/Runner.xcodeproj/project.pbxproj
 
     - name: Build signed IPA with export options
       run: |
