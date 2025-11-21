@@ -60,33 +60,33 @@ jobs:
         echo "Signing identity: $SIGNING_IDENTITY"
         
         # Create Python script to update Xcode project
-        cat > update_xcode.py << 'EOF'
-import sys
-import re
+        cat > update_xcode.py << EOF
+        import sys
+        import re
 
-def update_xcode_project(file_path, signing_identity):
-    with open(file_path, 'r') as f:
-        content = f.read()
-    
-    # Find all buildSettings sections and add code signing
-    pattern = r'(buildSettings = \{[^}]*PRODUCT_BUNDLE_IDENTIFIER = com\.toyutoyu\.app;[^}]*)\};'
-    
-    def replace_build_settings(match):
-        settings = match.group(1)
-        if 'CODE_SIGN_IDENTITY' not in settings:
-            settings += f'\n\t\t\t\tCODE_SIGN_IDENTITY = "{signing_identity}";'
-            settings += '\n\t\t\t\tCODE_SIGN_STYLE = Manual;'
-            settings += '\n\t\t\t\tDEVELOPMENT_TEAM = 4AJFY7K2UM;'
-        return settings + '\n\t\t\t};'
-    
-    updated_content = re.sub(pattern, replace_build_settings, content, flags=re.DOTALL)
-    
-    with open(file_path, 'w') as f:
-        f.write(updated_content)
+        def update_xcode_project(file_path, signing_identity):
+            with open(file_path, 'r') as f:
+                content = f.read()
+            
+            # Find all buildSettings sections and add code signing
+            pattern = r'(buildSettings = \{[^}]*PRODUCT_BUNDLE_IDENTIFIER = com\.toyutoyu\.app;[^}]*)\};'
+            
+            def replace_build_settings(match):
+                settings = match.group(1)
+                if 'CODE_SIGN_IDENTITY' not in settings:
+                    settings += f'\n\t\t\t\tCODE_SIGN_IDENTITY = "{signing_identity}";'
+                    settings += '\n\t\t\t\tCODE_SIGN_STYLE = Manual;'
+                    settings += '\n\t\t\t\tDEVELOPMENT_TEAM = 4AJFY7K2UM;'
+                return settings + '\n\t\t\t};'
+            
+            updated_content = re.sub(pattern, replace_build_settings, content, flags=re.DOTALL)
+            
+            with open(file_path, 'w') as f:
+                f.write(updated_content)
 
-if __name__ == "__main__":
-    update_xcode_project("ios/Runner.xcodeproj/project.pbxproj", sys.argv[1])
-EOF
+        if __name__ == "__main__":
+            update_xcode_project("ios/Runner.xcodeproj/project.pbxproj", sys.argv[1])
+        EOF
         
         # Run the Python script
         python3 update_xcode.py "$SIGNING_IDENTITY"
