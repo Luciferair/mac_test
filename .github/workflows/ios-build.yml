@@ -53,6 +53,20 @@ jobs:
         # List available signing identities
         security find-identity -v -p codesigning ~/Library/Keychains/build.keychain
 
+    - name: Configure code signing
+      run: |
+        # Get signing identity
+        SIGNING_IDENTITY=$(security find-identity -v -p codesigning ~/Library/Keychains/build.keychain | head -1 | grep '"' | sed -e 's/[^"]*"//' -e 's/".*//')
+        echo "Signing identity: $SIGNING_IDENTITY"
+        
+        # Update Xcode project settings
+        /usr/libexec/PlistBuddy -c "Set :objects:97C147061CF9000F007C117D:buildSettings:CODE_SIGN_STYLE Manual" ios/Runner.xcodeproj/project.pbxproj
+        /usr/libexec/PlistBuddy -c "Set :objects:97C147061CF9000F007C117D:buildSettings:CODE_SIGN_IDENTITY \"$SIGNING_IDENTITY\"" ios/Runner.xcodeproj/project.pbxproj
+        /usr/libexec/PlistBuddy -c "Set :objects:97C147071CF9000F007C117D:buildSettings:CODE_SIGN_STYLE Manual" ios/Runner.xcodeproj/project.pbxproj
+        /usr/libexec/PlistBuddy -c "Set :objects:97C147071CF9000F007C117D:buildSettings:CODE_SIGN_IDENTITY \"$SIGNING_IDENTITY\"" ios/Runner.xcodeproj/project.pbxproj
+        /usr/libexec/PlistBuddy -c "Set :objects:249021D4217E4FDB00AE95B9:buildSettings:CODE_SIGN_STYLE Manual" ios/Runner.xcodeproj/project.pbxproj
+        /usr/libexec/PlistBuddy -c "Set :objects:249021D4217E4FDB00AE95B9:buildSettings:CODE_SIGN_IDENTITY \"$SIGNING_IDENTITY\"" ios/Runner.xcodeproj/project.pbxproj
+
     - name: Build signed IPA with export options
       run: |
         flutter build ipa --release \
