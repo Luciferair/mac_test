@@ -27,25 +27,17 @@ jobs:
         echo "${{ secrets.IOS_CERTIFICATE_P12 }}" | base64 -d > ~/certs/ios_distribution.p12
         echo "${{ secrets.IOS_MOBILEPROVISION }}" | base64 -d > ~/certs/profile.mobileprovision
 
-        # Debug: Check file sizes
-        ls -la ~/certs/
-        file ~/certs/ios_distribution.p12
-
         # Create & configure keychain
         security create-keychain -p "" build.keychain
         security set-keychain-settings -lut 21600 build.keychain
         security default-keychain -s build.keychain
         security unlock-keychain -p "" build.keychain
 
-        # Test certificate first
-        echo "Testing certificate with openssl..."
-        openssl pkcs12 -info -in ~/certs/ios_distribution.p12 -passin pass:"${{ secrets.IOS_CERT_PASSWORD }}" -noout
-
-        # Import p12
+        # Import p12 with different approach
         security import ~/certs/ios_distribution.p12 \
           -k ~/Library/Keychains/build.keychain \
           -P "${{ secrets.IOS_CERT_PASSWORD }}" \
-          -T /usr/bin/codesign
+          -A
 
         security list-keychains -s ~/Library/Keychains/build.keychain
 
