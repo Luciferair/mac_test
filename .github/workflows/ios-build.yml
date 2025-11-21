@@ -27,17 +27,19 @@ jobs:
         echo "${{ secrets.IOS_CERTIFICATE_P12 }}" | base64 -d > ~/certs/ios_distribution.p12
         echo "${{ secrets.IOS_MOBILEPROVISION }}" | base64 -d > ~/certs/profile.mobileprovision
 
+        # Extract certificate and key using OpenSSL
+        openssl pkcs12 -in ~/certs/ios_distribution.p12 -clcerts -nokeys -out ~/certs/cert.pem -passin pass:"${{ secrets.IOS_CERT_PASSWORD }}"
+        openssl pkcs12 -in ~/certs/ios_distribution.p12 -nocerts -nodes -out ~/certs/key.pem -passin pass:"${{ secrets.IOS_CERT_PASSWORD }}"
+
         # Create & configure keychain
         security create-keychain -p "" build.keychain
         security set-keychain-settings -lut 21600 build.keychain
         security default-keychain -s build.keychain
         security unlock-keychain -p "" build.keychain
 
-        # Import p12 with different approach
-        security import ~/certs/ios_distribution.p12 \
-          -k ~/Library/Keychains/build.keychain \
-          -P "${{ secrets.IOS_CERT_PASSWORD }}" \
-          -A
+        # Import certificate and key separately
+        security import ~/certs/cert.pem -k ~/Library/Keychains/build.keychain -A
+        security import ~/certs/key.pem -k ~/Library/Keychains/build.keychain -A
 
         security list-keychains -s ~/Library/Keychains/build.keychain
 
