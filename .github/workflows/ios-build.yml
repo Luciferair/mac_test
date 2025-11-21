@@ -59,16 +59,32 @@ jobs:
         SIGNING_IDENTITY=$(security find-identity -v -p codesigning ~/Library/Keychains/build.keychain | head -1 | grep '"' | sed -e 's/[^"]*"//' -e 's/".*//')
         echo "Signing identity: $SIGNING_IDENTITY"
         
-        # Get provisioning profile UUID
-        PROFILE_UUID=$(grep -A1 -B1 UUID ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision | grep string | sed 's/.*<string>\(.*\)<\/string>.*/\1/')
+        # Get provisioning profile UUID - try multiple methods
+        echo "Checking provisioning profile..."
+        ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
+        
+        # Method 1: Extract UUID from plist
+        PROFILE_UUID=$(security cms -D -i ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision | plutil -extract UUID xml1 - -o - | grep -A1 UUID | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/')
+        
+        if [ -z "$PROFILE_UUID" ]; then
+          # Method 2: Alternative extraction
+          PROFILE_UUID=$(security cms -D -i ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision | grep -A1 -B1 UUID | grep string | sed 's/.*<string>\(.*\)<\/string>.*/\1/')
+        fi
+        
         echo "Provisioning profile UUID: $PROFILE_UUID"
+        
+        # Use profile name if UUID extraction fails
+        if [ -z "$PROFILE_UUID" ]; then
+          PROFILE_NAME="ToyuToyu_AppStore_Profile"
+          echo "Using profile name: $PROFILE_NAME"
+        fi
         
         # Create Python script to update Xcode project
         cat > update_xcode.py << EOF
         import sys
         import re
 
-        def update_xcode_project(file_path, signing_identity, profile_uuid):
+        def update_xcode_project(file_path, signing_identity, profile_specifier):
             with open(file_path, 'r') as f:
                 content = f.read()
             
@@ -81,7 +97,7 @@ jobs:
                     settings += f'\n\t\t\t\tCODE_SIGN_IDENTITY = "{signing_identity}";'
                     settings += '\n\t\t\t\tCODE_SIGN_STYLE = Manual;'
                     settings += '\n\t\t\t\tDEVELOPMENT_TEAM = 4AJFY7K2UM;'
-                    settings += f'\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{profile_uuid}";'
+                    settings += f'\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{profile_specifier}";'
                 return settings + '\n\t\t\t};'
             
             updated_content = re.sub(pattern, replace_build_settings, content, flags=re.DOTALL)
@@ -93,11 +109,15 @@ jobs:
             update_xcode_project("ios/Runner.xcodeproj/project.pbxproj", sys.argv[1], sys.argv[2])
         EOF
         
-        # Run the Python script
-        python3 update_xcode.py "$SIGNING_IDENTITY" "$PROFILE_UUID"
+        # Run the Python script with UUID or name
+        if [ -n "$PROFILE_UUID" ]; then
+          python3 update_xcode.py "$SIGNING_IDENTITY" "$PROFILE_UUID"
+        else
+          python3 update_xcode.py "$SIGNING_IDENTITY" "$PROFILE_NAME"
+        fi
         
         echo "Updated project settings:"
-        grep -A 5 -B 1 "PROVISIONING_PROFILE" ios/Runner.xcodeproj/project.pbxproj || echo "No PROVISIONING_PROFILE settings found"
+        grep -A 2 -B 1 "PROVISIONING_PROFILE" ios/Runner.xcodeproj/project.pbxproj || echo "No PROVISIONING_PROFILE settings found"
 
     - name: Build signed IPA with export options
       run: |
