@@ -93,11 +93,19 @@ jobs:
             
             def replace_build_settings(match):
                 settings = match.group(1)
-                if 'CODE_SIGN_IDENTITY' not in settings:
-                    settings += f'\n\t\t\t\tCODE_SIGN_IDENTITY = "{signing_identity}";'
-                    settings += '\n\t\t\t\tCODE_SIGN_STYLE = Manual;'
-                    settings += '\n\t\t\t\tDEVELOPMENT_TEAM = 4AJFY7K2UM;'
-                    settings += f'\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{profile_specifier}";'
+                
+                # Remove existing CODE_SIGN settings if present
+                settings = re.sub(r'\n\t\t\t\tCODE_SIGN_IDENTITY = "[^"]*";', '', settings)
+                settings = re.sub(r'\n\t\t\t\tCODE_SIGN_STYLE = [^;]*;', '', settings)
+                settings = re.sub(r'\n\t\t\t\tDEVELOPMENT_TEAM = [^;]*;', '', settings)
+                settings = re.sub(r'\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "[^"]*";', '', settings)
+                
+                # Add new settings
+                settings += f'\n\t\t\t\tCODE_SIGN_IDENTITY = "{signing_identity}";'
+                settings += '\n\t\t\t\tCODE_SIGN_STYLE = Manual;'
+                settings += '\n\t\t\t\tDEVELOPMENT_TEAM = 4AJFY7K2UM;'
+                settings += f'\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{profile_specifier}";'
+                
                 return settings + '\n\t\t\t};'
             
             updated_content = re.sub(pattern, replace_build_settings, content, flags=re.DOTALL)
