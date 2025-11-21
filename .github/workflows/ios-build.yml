@@ -1,4 +1,4 @@
-name: iOS Build
+name: iOS Signed Build
 
 on:
   push:
@@ -8,38 +8,50 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - uses: subosito/flutter-action@v2
       with:
         flutter-version: '3.35.7'
         channel: 'stable'
-    
+
     - name: Install dependencies
       run: flutter pub get
-    
-    - name: Generate icons and splash
+
+    - name: Install certificate & provisioning profile
       run: |
-        dart run flutter_launcher_icons
-        dart run flutter_native_splash:create
-    
-    - name: Build iOS (no codesign)
-      run: flutter build ios --release --no-codesign
-    
-    - name: Create buildy folder
-      run: mkdir -p buildy
-    
-    - name: Copy IPA to buildy
+        mkdir -p ~/certs
+        # Decode base64 → files
+        echo "${{ secrets.IOS_CERTIFICATE_P12 }}" | base64 -d > ~/certs/ios_distribution.p12
+        echo "${{ secrets.IOS_MOBILEPROVISION }}" | base64 -d > ~/certs/profile.mobileprovision
+
+        # Create & configure keychain
+        security create-keychain -p "" build.keychain
+        security set-keychain-settings -lut 21600 build.keychain
+        security default-keychain -s build.keychain
+        security unlock-keychain -p "" build.keychain
+
+        # Import p12
+        security import ~/certs/ios_distribution.p12 \
+          -k ~/Library/Keychains/build.keychain \
+          -P "${{ secrets.IOS_CERT_PASSWORD }}" \
+          -T /usr/bin/codesign
+
+        security list-keychains -s ~/Library/Keychains/build.keychain
+
+        # Install provisioning profile
+        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+        cp ~/certs/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
+    - name: Build signed IPA with export options
       run: |
-        cd build/ios/iphoneos
-        mkdir -p Payload
-        cp -r Runner.app Payload/
-        zip -r ../../../buildy/toyutoyu.ipa Payload
-    
-    - name: Upload iOS build
+        flutter build ipa --release \
+          --export-options-plist=ios/Runner/ExportOptions.plist
+
+    - name: Upload Signed IPA
       uses: actions/upload-artifact@v4
       with:
-        name: ios-build
-        path: buildy/toyutoyu.ipa
+        name: signed-ios-ipa
+        path: build/ios/ipa/*.ipa
