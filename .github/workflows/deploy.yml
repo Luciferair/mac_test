@@ -1,0 +1,23 @@
+name: Upload IPA to App Store (Production)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  upload-production:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.event.head_commit && contains(github.event.head_commit.message, 'deploy')) }}
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Upload to App Store (Production)
+      uses: apple-actions/upload-app-store-build@v2
+      with:
+        app-path: files/toyutoyu.ipa    
+        issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
+        api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+        api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
