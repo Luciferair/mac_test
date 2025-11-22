@@ -1,114 +1,114 @@
-name: iOS Signed Build
+# name: iOS Signed Build
 
-on:
-  push:
-    branches: [ main, master ]
-  workflow_dispatch:
+# on:
+#   push:
+#     branches: [ main, master ]
+#   workflow_dispatch:
 
-jobs:
-  build-ios:
-    runs-on: macos-latest
+# jobs:
+#   build-ios:
+#     runs-on: macos-latest
 
-    steps:
-    - uses: actions/checkout@v4
+#     steps:
+#     - uses: actions/checkout@v4
 
-    - uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.35.7'
-        channel: 'stable'
+#     - uses: subosito/flutter-action@v2
+#       with:
+#         flutter-version: '3.35.7'
+#         channel: 'stable'
 
-    - name: Install dependencies
-      run: flutter pub get
+#     - name: Install dependencies
+#       run: flutter pub get
 
-    - name: Generate app icons
-      run: flutter pub run flutter_launcher_icons
+#     - name: Generate app icons
+#       run: flutter pub run flutter_launcher_icons
 
-    - name: Install certificate & provisioning profile
-      run: |
-        mkdir -p ~/certs
-        echo "${{ secrets.IOS_CERTIFICATE_P12 }}" | base64 -d > ~/certs/ios_distribution.p12
-        echo "${{ secrets.IOS_MOBILEPROVISION }}" | base64 -d > ~/certs/profile.mobileprovision
+#     - name: Install certificate & provisioning profile
+#       run: |
+#         mkdir -p ~/certs
+#         echo "${{ secrets.IOS_CERTIFICATE_P12 }}" | base64 -d > ~/certs/ios_distribution.p12
+#         echo "${{ secrets.IOS_MOBILEPROVISION }}" | base64 -d > ~/certs/profile.mobileprovision
         
-        openssl pkcs12 -in ~/certs/ios_distribution.p12 -clcerts -nokeys -out ~/certs/cert.pem -passin pass:"${{ secrets.IOS_CERT_PASSWORD }}"
-        openssl pkcs12 -in ~/certs/ios_distribution.p12 -nocerts -nodes -out ~/certs/key.pem -passin pass:"${{ secrets.IOS_CERT_PASSWORD }}"
+#         openssl pkcs12 -in ~/certs/ios_distribution.p12 -clcerts -nokeys -out ~/certs/cert.pem -passin pass:"${{ secrets.IOS_CERT_PASSWORD }}"
+#         openssl pkcs12 -in ~/certs/ios_distribution.p12 -nocerts -nodes -out ~/certs/key.pem -passin pass:"${{ secrets.IOS_CERT_PASSWORD }}"
         
-        security create-keychain -p "" build.keychain
-        security set-keychain-settings -lut 21600 build.keychain
-        security default-keychain -s build.keychain
-        security unlock-keychain -p "" build.keychain
+#         security create-keychain -p "" build.keychain
+#         security set-keychain-settings -lut 21600 build.keychain
+#         security default-keychain -s build.keychain
+#         security unlock-keychain -p "" build.keychain
         
-        security import ~/certs/cert.pem -k ~/Library/Keychains/build.keychain -A
-        security import ~/certs/key.pem -k ~/Library/Keychains/build.keychain -A
+#         security import ~/certs/cert.pem -k ~/Library/Keychains/build.keychain -A
+#         security import ~/certs/key.pem -k ~/Library/Keychains/build.keychain -A
         
-        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" ~/Library/Keychains/build.keychain
-        security list-keychains -s ~/Library/Keychains/build.keychain
+#         security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" ~/Library/Keychains/build.keychain
+#         security list-keychains -s ~/Library/Keychains/build.keychain
         
-        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-        cp ~/certs/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+#         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+#         cp ~/certs/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
 
-    - name: Configure code signing
-      run: |
-        SIGNING_IDENTITY=$(security find-identity -v -p codesigning ~/Library/Keychains/build.keychain | head -1 | grep '"' | sed -e 's/[^"]*"//' -e 's/".*//')
-        echo "Signing identity: $SIGNING_IDENTITY"
+#     - name: Configure code signing
+#       run: |
+#         SIGNING_IDENTITY=$(security find-identity -v -p codesigning ~/Library/Keychains/build.keychain | head -1 | grep '"' | sed -e 's/[^"]*"//' -e 's/".*//')
+#         echo "Signing identity: $SIGNING_IDENTITY"
         
-        PROFILE_UUID="ed3dea6d-9a0a-45e8-ad42-a7a97cb0e070"
-        echo "Using profile UUID: $PROFILE_UUID"
+#         PROFILE_UUID="ed3dea6d-9a0a-45e8-ad42-a7a97cb0e070"
+#         echo "Using profile UUID: $PROFILE_UUID"
         
-        cat > update_project.py << 'PYTHON_EOF'
-        import sys, re
-        with open('ios/Runner.xcodeproj/project.pbxproj', 'r') as f:
-            content = f.read()
-        pattern = r'(buildSettings = \{[^}]*PRODUCT_BUNDLE_IDENTIFIER = com\.toyutoyu\.app;[^}]*)\};'
-        def replace_settings(match):
-            settings = match.group(1)
-            settings = re.sub(r'\n\t\t\t\tCODE_SIGN_IDENTITY = "[^"]*";', '', settings)
-            settings = re.sub(r'\n\t\t\t\tCODE_SIGN_STYLE = [^;]*;', '', settings)
-            settings = re.sub(r'\n\t\t\t\tDEVELOPMENT_TEAM = [^;]*;', '', settings)
-            settings = re.sub(r'\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "[^"]*";', '', settings)
-            settings += f'\n\t\t\t\tCODE_SIGN_IDENTITY = "{sys.argv[1]}";'
-            settings += '\n\t\t\t\tCODE_SIGN_STYLE = Manual;'
-            settings += '\n\t\t\t\tDEVELOPMENT_TEAM = 4AJFY7K2UM;'
-            settings += f'\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{sys.argv[2]}";'
-            return settings + '\n\t\t\t};'
-        updated = re.sub(pattern, replace_settings, content, flags=re.DOTALL)
-        with open('ios/Runner.xcodeproj/project.pbxproj', 'w') as f:
-            f.write(updated)
-        PYTHON_EOF
+#         cat > update_project.py << 'PYTHON_EOF'
+#         import sys, re
+#         with open('ios/Runner.xcodeproj/project.pbxproj', 'r') as f:
+#             content = f.read()
+#         pattern = r'(buildSettings = \{[^}]*PRODUCT_BUNDLE_IDENTIFIER = com\.toyutoyu\.app;[^}]*)\};'
+#         def replace_settings(match):
+#             settings = match.group(1)
+#             settings = re.sub(r'\n\t\t\t\tCODE_SIGN_IDENTITY = "[^"]*";', '', settings)
+#             settings = re.sub(r'\n\t\t\t\tCODE_SIGN_STYLE = [^;]*;', '', settings)
+#             settings = re.sub(r'\n\t\t\t\tDEVELOPMENT_TEAM = [^;]*;', '', settings)
+#             settings = re.sub(r'\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "[^"]*";', '', settings)
+#             settings += f'\n\t\t\t\tCODE_SIGN_IDENTITY = "{sys.argv[1]}";'
+#             settings += '\n\t\t\t\tCODE_SIGN_STYLE = Manual;'
+#             settings += '\n\t\t\t\tDEVELOPMENT_TEAM = 4AJFY7K2UM;'
+#             settings += f'\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{sys.argv[2]}";'
+#             return settings + '\n\t\t\t};'
+#         updated = re.sub(pattern, replace_settings, content, flags=re.DOTALL)
+#         with open('ios/Runner.xcodeproj/project.pbxproj', 'w') as f:
+#             f.write(updated)
+#         PYTHON_EOF
         
-        python3 update_project.py "$SIGNING_IDENTITY" "$PROFILE_UUID"
+#         python3 update_project.py "$SIGNING_IDENTITY" "$PROFILE_UUID"
         
-        cat > ios/Runner/ExportOptions.plist << 'PLIST_EOF'
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>teamID</key>
-            <string>4AJFY7K2UM</string>
-            <key>provisioningProfiles</key>
-            <dict>
-                <key>com.toyutoyu.app</key>
-                <string>ed3dea6d-9a0a-45e8-ad42-a7a97cb0e070</string>
-            </dict>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>compileBitcode</key>
-            <true/>
-            <key>uploadBitcode</key>
-            <true/>
-            <key>uploadSymbols</key>
-            <true/>
-        </dict>
-        </plist>
-        PLIST_EOF
+#         cat > ios/Runner/ExportOptions.plist << 'PLIST_EOF'
+#         <?xml version="1.0" encoding="UTF-8"?>
+#         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+#         <plist version="1.0">
+#         <dict>
+#             <key>method</key>
+#             <string>app-store</string>
+#             <key>teamID</key>
+#             <string>4AJFY7K2UM</string>
+#             <key>provisioningProfiles</key>
+#             <dict>
+#                 <key>com.toyutoyu.app</key>
+#                 <string>ed3dea6d-9a0a-45e8-ad42-a7a97cb0e070</string>
+#             </dict>
+#             <key>signingStyle</key>
+#             <string>manual</string>
+#             <key>compileBitcode</key>
+#             <true/>
+#             <key>uploadBitcode</key>
+#             <true/>
+#             <key>uploadSymbols</key>
+#             <true/>
+#         </dict>
+#         </plist>
+#         PLIST_EOF
 
-    - name: Build signed IPA with export options
-      run: |
-        flutter build ipa --release --export-options-plist=ios/Runner/ExportOptions.plist
+#     - name: Build signed IPA with export options
+#       run: |
+#         flutter build ipa --release --export-options-plist=ios/Runner/ExportOptions.plist
 
-    - name: Upload Signed IPA
-      uses: actions/upload-artifact@v4
-      with:
-        name: signed-ios-ipa
-        path: build/ios/ipa/*.ipa
+#     - name: Upload Signed IPA
+#       uses: actions/upload-artifact@v4
+#       with:
+#         name: signed-ios-ipa
+#         path: build/ios/ipa/*.ipa
