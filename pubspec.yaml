@@ -2,7 +2,7 @@ name: toyutoyu
 description: "Relax, earn points, and enjoy hot spring facilities with ease using Toyu Toyu."
 publish_to: 'none'
 
-version: 1.0.0+2
+version: 1.0.0+3
 
 environment:
   sdk: ^3.9.2
@@ -26,9 +26,11 @@ flutter:
     - assets/
 
 flutter_launcher_icons:
-  android: true
+  android: "launcher_icon"
   ios: true
   image_path: "assets/icon.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
 
 flutter_native_splash:
   android: true
