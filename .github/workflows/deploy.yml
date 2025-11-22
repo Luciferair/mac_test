@@ -14,10 +14,17 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Upload to App Store (Production)
-      uses: apple-actions/upload-app-store-build@v2
-      with:
-        app-path: files/toyutoyu.ipa    
-        issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-        api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
-        api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+    - name: Create API Key file
+      run: |
+        echo "${{ secrets.APPSTORE_PRIVATE_KEY }}" > AuthKey.p8
+
+    - name: Upload to App Store Connect
+      run: |
+        xcrun iTMSTransporter -m upload \
+          -f files/toyutoyu.ipa \
+          -k AuthKey.p8 \
+          -i ${{ secrets.APPSTORE_KEY_ID }} \
+          -issuer ${{ secrets.APPSTORE_ISSUER_ID }}
+
+    - name: Clean up
+      run: rm -f AuthKey.p8
